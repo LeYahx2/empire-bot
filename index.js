@@ -52,7 +52,10 @@ client.once('ready', async () => {
     console.log('⏳ Synchronisation des slash commands...');
 
     await rest.put(
-      Routes.applicationCommands('1500891961320542338'),
+      Routes.applicationGuildCommands(
+        '1500891961320542338',
+        '1465673686043328526'
+      ),
       { body: commands }
     );
 
