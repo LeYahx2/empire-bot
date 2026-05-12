@@ -5,7 +5,7 @@ const {
   Routes,
   SlashCommandBuilder
 } = require('discord.js');
-
+const money = {};
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -20,7 +20,22 @@ const commands = [
     .setDescription('Répond pong')
     .toJSON()
 ];
+new SlashCommandBuilder()
+  .setName('balance')
+  .setDescription('Voir son argent'),
 
+new SlashCommandBuilder()
+  .setName('shop')
+  .setDescription('Voir la boutique'),
+
+new SlashCommandBuilder()
+  .setName('buy')
+  .setDescription('Acheter un objet')
+  .addStringOption(option =>
+    option.setName('objet')
+      .setDescription('Objet à acheter')
+      .setRequired(true)
+  ),
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 client.once('ready', async () => {
@@ -47,10 +62,63 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply('🏓 pong');
   }
 });
+if (interaction.commandName === 'balance') {
 
+  const coins = money[interaction.user.id] || 0;
+
+  await interaction.reply(
+    `💰 Tu as ${coins} crédits Empire`
+  );
+}
+if (interaction.commandName === 'shop') {
+
+  await interaction.reply(`
+🛒 Boutique Empire
+
+⚔️ Épée → 100 crédits
+👑 VIP → 500 crédits
+🔥 Coffre → 250 crédits
+  `);
+}
+if (interaction.commandName === 'buy') {
+
+  const objet = interaction.options.getString('objet');
+
+  const prices = {
+    "épée": 100,
+    "vip": 500,
+    "coffre": 250
+  };
+
+  if (!prices[objet]) {
+    return interaction.reply("❌ Objet inconnu");
+  }
+
+  const userId = interaction.user.id;
+
+  if (!money[userId]) {
+    money[userId] = 0;
+  }
+
+  if (money[userId] < prices[objet]) {
+    return interaction.reply("❌ Pas assez d'argent");
+  }
+
+  money[userId] -= prices[objet];
+
+  await interaction.reply(
+    `✅ Tu as acheté ${objet}`
+  );
+}
 client.on('messageCreate', message => {
   if (message.author.bot) return;
+const userId = message.author.id;
 
+if (!money[userId]) {
+  money[userId] = 0;
+}
+
+money[userId] += Math.floor(Math.random() * 10) + 1;
   if (message.content === '!ping') {
     message.reply('🏓 pong');
   }
