@@ -1,9 +1,10 @@
-const {
+  const {
   Client,
   GatewayIntentBits,
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  PermissionFlagsBits
 } = require('discord.js');
 
 const client = new Client({
@@ -22,7 +23,7 @@ const CLIENT_ID = '1500891961320542338';
 const GUILD_ID = '1465673686043328526';
 
 // =========================
-// XP + LEVEL
+// DATA
 // =========================
 
 const xp = {};
@@ -87,7 +88,81 @@ const commands = [
   // LEADERBOARD
   new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Top niveaux serveur')
+    .setDescription('Top niveaux serveur'),
+
+  // ADD XP
+  new SlashCommandBuilder()
+    .setName('addxp')
+    .setDescription('Ajouter XP')
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
+
+    .addUserOption(option =>
+      option.setName('membre')
+        .setDescription('Membre')
+        .setRequired(true)
+    )
+
+    .addIntegerOption(option =>
+      option.setName('montant')
+        .setDescription('XP')
+        .setRequired(true)
+    ),
+
+  // REMOVE XP
+  new SlashCommandBuilder()
+    .setName('removexp')
+    .setDescription('Retirer XP')
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
+
+    .addUserOption(option =>
+      option.setName('membre')
+        .setDescription('Membre')
+        .setRequired(true)
+    )
+
+    .addIntegerOption(option =>
+      option.setName('montant')
+        .setDescription('XP')
+        .setRequired(true)
+    ),
+
+  // RESET XP
+  new SlashCommandBuilder()
+    .setName('resetxp')
+    .setDescription('Reset XP')
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
+
+    .addUserOption(option =>
+      option.setName('membre')
+        .setDescription('Membre')
+        .setRequired(true)
+    ),
+
+  // ADD LEVEL
+  new SlashCommandBuilder()
+    .setName('addlevel')
+    .setDescription('Ajouter niveaux')
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
+
+    .addUserOption(option =>
+      option.setName('membre')
+        .setDescription('Membre')
+        .setRequired(true)
+    )
+
+    .addIntegerOption(option =>
+      option.setName('montant')
+        .setDescription('Niveaux')
+        .setRequired(true)
+    )
 
 ].map(command => command.toJSON());
 
@@ -109,13 +184,13 @@ client.once('ready', async () => {
 
   try {
 
-    // SUPPRIME COMMANDES GLOBALES
+    // DELETE GLOBAL COMMANDS
     await rest.put(
       Routes.applicationCommands(CLIENT_ID),
       { body: [] }
     );
 
-    // AJOUTE COMMANDES SERVEUR
+    // GUILD COMMANDS
     await rest.put(
       Routes.applicationGuildCommands(
         CLIENT_ID,
@@ -132,7 +207,7 @@ client.once('ready', async () => {
 });
 
 // =========================
-// MESSAGE XP
+// XP PAR MESSAGE
 // =========================
 
 client.on('messageCreate', async message => {
@@ -167,11 +242,42 @@ client.on('messageCreate', async message => {
 
   xp[userId] += gain;
 
-  // XP REQUIS
-  const needed =
-    level[userId] * 100;
+  // =========================
+  // XP REQUIS HARD
+  // =========================
 
+  let needed = 0;
+
+  if (level[userId] < 5) {
+
+    needed = level[userId] * 100;
+
+  } else if (level[userId] < 10) {
+
+    needed = level[userId] * 250;
+
+  } else if (level[userId] < 20) {
+
+    needed = level[userId] * 500;
+
+  } else if (level[userId] < 35) {
+
+    needed = level[userId] * 1000;
+
+  } else if (level[userId] < 50) {
+
+    needed = level[userId] * 2000;
+
+  } else {
+
+    needed = level[userId] * 5000;
+
+  }
+
+  // =========================
   // LEVEL UP
+  // =========================
+
   if (xp[userId] >= needed) {
 
     xp[userId] = 0;
@@ -226,13 +332,42 @@ client.on('interactionCreate', async interaction => {
   }
 
   // =========================
+  // XP NEEDED
+  // =========================
+
+  let needed = 0;
+
+  if (level[userId] < 5) {
+
+    needed = level[userId] * 100;
+
+  } else if (level[userId] < 10) {
+
+    needed = level[userId] * 250;
+
+  } else if (level[userId] < 20) {
+
+    needed = level[userId] * 500;
+
+  } else if (level[userId] < 35) {
+
+    needed = level[userId] * 1000;
+
+  } else if (level[userId] < 50) {
+
+    needed = level[userId] * 2000;
+
+  } else {
+
+    needed = level[userId] * 5000;
+
+  }
+
+  // =========================
   // RANK
   // =========================
 
   if (interaction.commandName === 'rank') {
-
-    const needed =
-      level[userId] * 100;
 
     return interaction.reply(
       `🏆 Niveau : ${level[userId]}\n⭐ XP : ${xp[userId]} / ${needed}`
@@ -259,6 +394,96 @@ client.on('interactionCreate', async interaction => {
     }
 
     return interaction.reply(texte);
+  }
+
+  // =========================
+  // ADD XP
+  // =========================
+
+  if (interaction.commandName === 'addxp') {
+
+    const membre =
+      interaction.options.getUser('membre');
+
+    const montant =
+      interaction.options.getInteger('montant');
+
+    if (!xp[membre.id]) {
+      xp[membre.id] = 0;
+    }
+
+    xp[membre.id] += montant;
+
+    return interaction.reply(
+      `✅ ${montant} XP ajoutés à ${membre}`
+    );
+  }
+
+  // =========================
+  // REMOVE XP
+  // =========================
+
+  if (interaction.commandName === 'removexp') {
+
+    const membre =
+      interaction.options.getUser('membre');
+
+    const montant =
+      interaction.options.getInteger('montant');
+
+    if (!xp[membre.id]) {
+      xp[membre.id] = 0;
+    }
+
+    xp[membre.id] -= montant;
+
+    if (xp[membre.id] < 0) {
+      xp[membre.id] = 0;
+    }
+
+    return interaction.reply(
+      `❌ ${montant} XP retirés à ${membre}`
+    );
+  }
+
+  // =========================
+  // RESET XP
+  // =========================
+
+  if (interaction.commandName === 'resetxp') {
+
+    const membre =
+      interaction.options.getUser('membre');
+
+    xp[membre.id] = 0;
+    level[membre.id] = 1;
+
+    return interaction.reply(
+      `🔄 XP reset pour ${membre}`
+    );
+  }
+
+  // =========================
+  // ADD LEVEL
+  // =========================
+
+  if (interaction.commandName === 'addlevel') {
+
+    const membre =
+      interaction.options.getUser('membre');
+
+    const montant =
+      interaction.options.getInteger('montant');
+
+    if (!level[membre.id]) {
+      level[membre.id] = 1;
+    }
+
+    level[membre.id] += montant;
+
+    return interaction.reply(
+      `👑 ${montant} niveaux ajoutés à ${membre}`
+    );
   }
 });
 
