@@ -3,16 +3,7 @@ const {
   GatewayIntentBits,
   REST,
   Routes,
-  SlashCommandBuilder,
-  PermissionFlagsBits,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  Events
+  SlashCommandBuilder
 } = require('discord.js');
 
 const client = new Client({
@@ -23,92 +14,108 @@ const client = new Client({
   ]
 });
 
-// ======================
+// =========================
 // CONFIG
-// ======================
+// =========================
 
 const CLIENT_ID = '1500891961320542338';
 const GUILD_ID = '1465673686043328526';
 
-// ======================
-// DATA
-// ======================
+// =========================
+// XP + LEVEL
+// =========================
 
-const money = {};
-const shop = {};
-const inventories = {};
-const roleShop = {};
+const xp = {};
+const level = {};
+const cooldowns = {};
 
-// ======================
+// =========================
+// RANKS
+// =========================
+
+const rankRoles = [
+
+  {
+    level: 5,
+    roleId: '1500537533975756810',
+    name: 'Bronze'
+  },
+
+  {
+    level: 10,
+    roleId: '1500537634659762367',
+    name: 'Argent'
+  },
+
+  {
+    level: 20,
+    roleId: '1500537697511538831',
+    name: 'Or'
+  },
+
+  {
+    level: 35,
+    roleId: '1500537820954099792',
+    name: 'Platine'
+  },
+
+  {
+    level: 50,
+    roleId: '1500538432231837916',
+    name: 'Diamant'
+  },
+
+  {
+    level: 75,
+    roleId: '1500538512741502987',
+    name: 'Légende'
+  }
+
+];
+
+// =========================
 // COMMANDES
-// ======================
+// =========================
 
 const commands = [
 
+  // RANK
   new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('Ping'),
+    .setName('rank')
+    .setDescription('Voir son niveau'),
 
+  // LEADERBOARD
   new SlashCommandBuilder()
-    .setName('balance')
-    .setDescription('Voir son argent'),
-
-  new SlashCommandBuilder()
-    .setName('shop')
-    .setDescription('Voir la boutique'),
-
-  new SlashCommandBuilder()
-    .setName('inventory')
-    .setDescription('Voir son inventaire'),
-
-  new SlashCommandBuilder()
-    .setName('buy')
-    .setDescription('Acheter un objet')
-    .addStringOption(option =>
-      option.setName('objet')
-        .setDescription('Objet')
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName('buyrole')
-    .setDescription('Acheter un rôle')
-    .addRoleOption(option =>
-      option.setName('role')
-        .setDescription('Rôle')
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName('panel')
-    .setDescription('Panel admin')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setName('leaderboard')
+    .setDescription('Top niveaux serveur')
 
 ].map(command => command.toJSON());
 
-// ======================
+// =========================
 // REST
-// ======================
+// =========================
 
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+const rest = new REST({
+  version: '10'
+}).setToken(process.env.TOKEN);
 
-// ======================
+// =========================
 // READY
-// ======================
+// =========================
 
 client.once('ready', async () => {
 
-  console.log('👑 Empire Bot connecté');
+  console.log('👑 Empire Ranked connecté');
 
   try {
 
-    // DELETE GLOBAL COMMANDS
+    // SUPPRIME COMMANDES GLOBALES
     await rest.put(
       Routes.applicationCommands(CLIENT_ID),
       { body: [] }
     );
 
-    // GUILD COMMANDS
+    // AJOUTE COMMANDES SERVEUR
     await rest.put(
       Routes.applicationGuildCommands(
         CLIENT_ID,
@@ -117,381 +124,146 @@ client.once('ready', async () => {
       { body: commands }
     );
 
-    console.log('✅ Commandes synchronisées');
+    console.log('✅ Slash commands synchronisées');
 
   } catch (error) {
     console.error(error);
   }
 });
 
-// ======================
-// MESSAGE MONEY
-// ======================
+// =========================
+// MESSAGE XP
+// =========================
 
-client.on('messageCreate', message => {
+client.on('messageCreate', async message => {
 
   if (message.author.bot) return;
 
   const userId = message.author.id;
 
-  if (!money[userId]) {
-    money[userId] = 0;
+  // INIT
+  if (!xp[userId]) {
+    xp[userId] = 0;
   }
 
-  money[userId] += Math.floor(Math.random() * 10) + 1;
-});
+  if (!level[userId]) {
+    level[userId] = 1;
+  }
 
-// ======================
-// INTERACTIONS
-// ======================
+  // COOLDOWN 30s
+  if (cooldowns[userId]) {
 
-client.on(Events.InteractionCreate, async interaction => {
+    const diff =
+      Date.now() - cooldowns[userId];
 
-  // ======================
-  // COMMANDES
-  // ======================
+    if (diff < 30000) return;
+  }
 
-  if (interaction.isChatInputCommand()) {
+  cooldowns[userId] = Date.now();
 
-    const userId = interaction.user.id;
+  // GAIN XP
+  const gain =
+    Math.floor(Math.random() * 15) + 5;
 
-    if (!money[userId]) {
-      money[userId] = 0;
-    }
+  xp[userId] += gain;
 
-    if (!inventories[userId]) {
-      inventories[userId] = [];
-    }
+  // XP REQUIS
+  const needed =
+    level[userId] * 100;
 
-    // PING
-    if (interaction.commandName === 'ping') {
+  // LEVEL UP
+  if (xp[userId] >= needed) {
 
-      return interaction.reply('🏓 Pong');
-    }
+    xp[userId] = 0;
 
-    // BALANCE
-    if (interaction.commandName === 'balance') {
+    level[userId]++;
 
-      return interaction.reply(
-        `💰 Tu as ${money[userId]} crédits`
-      );
-    }
+    message.channel.send(
+      `👑 ${message.author} passe niveau ${level[userId]}`
+    );
 
-    // SHOP
-    if (interaction.commandName === 'shop') {
+    // ROLE RANK
+    const rank = rankRoles.find(
+      r => r.level === level[userId]
+    );
 
-      let texte = '🛒 Boutique Empire\n\n';
+    if (rank) {
 
-      // OBJETS
-      for (const item in shop) {
-        texte += `⚔️ ${item} → ${shop[item]} crédits\n`;
-      }
-
-      // RÔLES
-      for (const roleId in roleShop) {
-
-        const role = interaction.guild.roles.cache.get(roleId);
-
-        if (role) {
-          texte += `👑 ${role.name} → ${roleShop[roleId]} crédits\n`;
-        }
-      }
-
-      if (
-        Object.keys(shop).length === 0 &&
-        Object.keys(roleShop).length === 0
-      ) {
-        texte += '❌ Boutique vide';
-      }
-
-      return interaction.reply(texte);
-    }
-
-    // BUY
-    if (interaction.commandName === 'buy') {
-
-      const objet = interaction.options.getString('objet');
-
-      if (!shop[objet]) {
-        return interaction.reply('❌ Objet introuvable');
-      }
-
-      const prix = shop[objet];
-
-      if (money[userId] < prix) {
-        return interaction.reply("❌ Pas assez d'argent");
-      }
-
-      money[userId] -= prix;
-
-      inventories[userId].push(objet);
-
-      return interaction.reply(
-        `✅ Tu as acheté ${objet}`
-      );
-    }
-
-    // INVENTORY
-    if (interaction.commandName === 'inventory') {
-
-      if (inventories[userId].length === 0) {
-        return interaction.reply('🎒 Inventaire vide');
-      }
-
-      return interaction.reply(
-        `🎒 Inventaire :\n${inventories[userId].join('\n')}`
-      );
-    }
-
-    // BUY ROLE
-    if (interaction.commandName === 'buyrole') {
-
-      const role = interaction.options.getRole('role');
-
-      if (!roleShop[role.id]) {
-        return interaction.reply('❌ Ce rôle n’est pas dans la boutique');
-      }
-
-      const prix = roleShop[role.id];
-
-      if (money[userId] < prix) {
-        return interaction.reply("❌ Pas assez d'argent");
-      }
-
-      money[userId] -= prix;
-
-      const member = interaction.member;
-
-      await member.roles.add(role);
-
-      return interaction.reply(
-        `👑 Tu as acheté le rôle ${role.name}`
-      );
-    }
-
-    // PANEL
-    if (interaction.commandName === 'panel') {
-
-      const embed = new EmbedBuilder()
-        .setTitle('👑 Panel Empire')
-        .setDescription('Gestion économie & boutique');
-
-      const row = new ActionRowBuilder()
-        .addComponents(
-
-          new ButtonBuilder()
-            .setCustomId('addmoney')
-            .setLabel('💰 Ajouter argent')
-            .setStyle(ButtonStyle.Success),
-
-          new ButtonBuilder()
-            .setCustomId('removemoney')
-            .setLabel('❌ Retirer argent')
-            .setStyle(ButtonStyle.Danger),
-
-          new ButtonBuilder()
-            .setCustomId('addshop')
-            .setLabel('🛒 Ajouter boutique')
-            .setStyle(ButtonStyle.Primary),
-
-          new ButtonBuilder()
-            .setCustomId('addrole')
-            .setLabel('👑 Ajouter rôle')
-            .setStyle(ButtonStyle.Secondary)
+      const role =
+        message.guild.roles.cache.get(
+          rank.roleId
         );
 
-      return interaction.reply({
-        embeds: [embed],
-        components: [row]
-      });
-    }
-  }
+      if (role) {
 
-  // ======================
-  // BOUTONS
-  // ======================
+        await message.member.roles.add(role);
 
-  if (interaction.isButton()) {
-
-    // ADD MONEY
-    if (interaction.customId === 'addmoney') {
-
-      const modal = new ModalBuilder()
-        .setCustomId('modal_addmoney')
-        .setTitle('Ajouter argent');
-
-      const userInput = new TextInputBuilder()
-        .setCustomId('userid')
-        .setLabel('ID utilisateur')
-        .setStyle(TextInputStyle.Short);
-
-      const amountInput = new TextInputBuilder()
-        .setCustomId('amount')
-        .setLabel('Montant')
-        .setStyle(TextInputStyle.Short);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(userInput),
-        new ActionRowBuilder().addComponents(amountInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // REMOVE MONEY
-    if (interaction.customId === 'removemoney') {
-
-      const modal = new ModalBuilder()
-        .setCustomId('modal_removemoney')
-        .setTitle('Retirer argent');
-
-      const userInput = new TextInputBuilder()
-        .setCustomId('userid')
-        .setLabel('ID utilisateur')
-        .setStyle(TextInputStyle.Short);
-
-      const amountInput = new TextInputBuilder()
-        .setCustomId('amount')
-        .setLabel('Montant')
-        .setStyle(TextInputStyle.Short);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(userInput),
-        new ActionRowBuilder().addComponents(amountInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // ADD SHOP
-    if (interaction.customId === 'addshop') {
-
-      const modal = new ModalBuilder()
-        .setCustomId('modal_addshop')
-        .setTitle('Ajouter boutique');
-
-      const itemInput = new TextInputBuilder()
-        .setCustomId('item')
-        .setLabel('Nom objet')
-        .setStyle(TextInputStyle.Short);
-
-      const priceInput = new TextInputBuilder()
-        .setCustomId('price')
-        .setLabel('Prix')
-        .setStyle(TextInputStyle.Short);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(itemInput),
-        new ActionRowBuilder().addComponents(priceInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-
-    // ADD ROLE
-    if (interaction.customId === 'addrole') {
-
-      const modal = new ModalBuilder()
-        .setCustomId('modal_addrole')
-        .setTitle('Ajouter rôle boutique');
-
-      const roleInput = new TextInputBuilder()
-        .setCustomId('roleid')
-        .setLabel('ID rôle')
-        .setStyle(TextInputStyle.Short);
-
-      const priceInput = new TextInputBuilder()
-        .setCustomId('price')
-        .setLabel('Prix')
-        .setStyle(TextInputStyle.Short);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(roleInput),
-        new ActionRowBuilder().addComponents(priceInput)
-      );
-
-      return interaction.showModal(modal);
-    }
-  }
-
-  // ======================
-  // MODALS
-  // ======================
-
-  if (interaction.isModalSubmit()) {
-
-    // ADD MONEY
-    if (interaction.customId === 'modal_addmoney') {
-
-      const userId = interaction.fields.getTextInputValue('userid');
-      const amount = parseInt(
-        interaction.fields.getTextInputValue('amount')
-      );
-
-      if (!money[userId]) {
-        money[userId] = 0;
+        message.channel.send(
+          `🏆 ${message.author} obtient le rank ${rank.name}`
+        );
       }
-
-      money[userId] += amount;
-
-      return interaction.reply(
-        `✅ ${amount} crédits ajoutés`
-      );
-    }
-
-    // REMOVE MONEY
-    if (interaction.customId === 'modal_removemoney') {
-
-      const userId = interaction.fields.getTextInputValue('userid');
-      const amount = parseInt(
-        interaction.fields.getTextInputValue('amount')
-      );
-
-      if (!money[userId]) {
-        money[userId] = 0;
-      }
-
-      money[userId] -= amount;
-
-      if (money[userId] < 0) {
-        money[userId] = 0;
-      }
-
-      return interaction.reply(
-        `❌ ${amount} crédits retirés`
-      );
-    }
-
-    // ADD SHOP
-    if (interaction.customId === 'modal_addshop') {
-
-      const item = interaction.fields.getTextInputValue('item');
-      const price = parseInt(
-        interaction.fields.getTextInputValue('price')
-      );
-
-      shop[item] = price;
-
-      return interaction.reply(
-        `🛒 ${item} ajouté pour ${price} crédits`
-      );
-    }
-
-    // ADD ROLE
-    if (interaction.customId === 'modal_addrole') {
-
-      const roleId = interaction.fields.getTextInputValue('roleid');
-      const price = parseInt(
-        interaction.fields.getTextInputValue('price')
-      );
-
-      roleShop[roleId] = price;
-
-      return interaction.reply(
-        `👑 Rôle ajouté pour ${price} crédits`
-      );
     }
   }
 });
+
+// =========================
+// INTERACTIONS
+// =========================
+
+client.on('interactionCreate', async interaction => {
+
+  if (!interaction.isChatInputCommand()) return;
+
+  const userId = interaction.user.id;
+
+  // INIT
+  if (!xp[userId]) {
+    xp[userId] = 0;
+  }
+
+  if (!level[userId]) {
+    level[userId] = 1;
+  }
+
+  // =========================
+  // RANK
+  // =========================
+
+  if (interaction.commandName === 'rank') {
+
+    const needed =
+      level[userId] * 100;
+
+    return interaction.reply(
+      `🏆 Niveau : ${level[userId]}\n⭐ XP : ${xp[userId]} / ${needed}`
+    );
+  }
+
+  // =========================
+  // LEADERBOARD
+  // =========================
+
+  if (interaction.commandName === 'leaderboard') {
+
+    const sorted = Object.entries(level)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    let texte =
+      '🏆 Leaderboard Empire\n\n';
+
+    for (let i = 0; i < sorted.length; i++) {
+
+      texte +=
+        `${i + 1}. <@${sorted[i][0]}> → Niveau ${sorted[i][1]}\n`;
+    }
+
+    return interaction.reply(texte);
+  }
+});
+
+// =========================
+// LOGIN
+// =========================
 
 client.login(process.env.TOKEN);
